@@ -32,7 +32,7 @@ fn main() {
 
     match &cli.command {
         Commands::Run { name } => {
-            if let Err(err) = find_task_in_config(&config, &name) {
+            if let Err(err) = find_root_tasks(&config, &name) {
                 eprintln!("{err}");
                 process::exit(1);
             }
@@ -42,8 +42,22 @@ fn main() {
     // print_summary(&config);
 }
 
-fn find_task_in_config(config: &Config, task: &str) -> anyhow::Result<()> {
+fn find_root_tasks(config: &Config, task: &str) -> anyhow::Result<()> {
     let root_tasks = config.get_root_tasks();
+
+    if root_tasks.iter().any(|t| *t == task) {
+        run_task(task)?;
+        Ok(())
+    } else {
+        Err(anyhow::anyhow!(
+            "Task '{}' not found or defined in configuration",
+            task
+        ))
+    }
+}
+
+fn find_tasks(config: &Config, task: &str) -> anyhow::Result<()> {
+    let root_tasks = config.get_dependent_tasks(task);
 
     if root_tasks.iter().any(|t| *t == task) {
         run_task(task)?;

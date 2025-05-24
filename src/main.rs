@@ -2,18 +2,12 @@ mod cli;
 mod config;
 
 use clap::Parser;
-use cli::{Cli, Commands};
+use cli::{Cli, Commands, run_task};
 use config::{Config, ConfigError};
 use std::process;
 
 fn main() {
     let cli = Cli::parse();
-
-    match &cli.command {
-        Commands::Run { name } => {
-            println!("Attempting to run task {}", name)
-        }
-    }
 
     let config_path = match Config::find_config_file() {
         Some(path) => {
@@ -36,7 +30,30 @@ fn main() {
         }
     };
 
-    print_summary(&config);
+    match &cli.command {
+        Commands::Run { name } => {
+            if let Err(err) = find_task_in_config(&config, &name) {
+                eprintln!("{err}");
+                process::exit(1);
+            }
+        }
+    }
+
+    // print_summary(&config);
+}
+
+fn find_task_in_config(config: &Config, task: &str) -> anyhow::Result<()> {
+    let root_tasks = config.get_root_tasks();
+
+    if root_tasks.iter().any(|t| *t == task) {
+        run_task(task)?;
+        Ok(())
+    } else {
+        Err(anyhow::anyhow!(
+            "Task '{}' not found or defined in configuration",
+            task
+        ))
+    }
 }
 
 fn print_summary(config: &Config) {

@@ -1,9 +1,20 @@
+mod cli;
 mod config;
 
+use clap::Parser;
+use cli::{Cli, Commands};
 use config::{Config, ConfigError};
 use std::process;
 
 fn main() {
+    let cli = Cli::parse();
+
+    match &cli.command {
+        Commands::Run { name } => {
+            println!("Attempting to run task {}", name)
+        }
+    }
+
     let config_path = match Config::find_config_file() {
         Some(path) => {
             println!("Found config file: {}", path.display());

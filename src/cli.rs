@@ -12,10 +12,5 @@ pub enum Commands {
         /// the task name to run
         name: String,
     },
-}
-
-pub fn run_task(task: &str) -> anyhow::Result<()> {
-    println!("will run task: {}", task);
-
-    Ok(())
+    Summary,
 }

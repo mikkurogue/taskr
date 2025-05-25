@@ -2,7 +2,7 @@ mod cli;
 mod config;
 
 use clap::Parser;
-use cli::{Cli, Commands, run_task};
+use cli::{Cli, Commands};
 use config::{Config, ConfigError, Task};
 use std::{
     io::{BufRead, BufReader},
@@ -47,6 +47,7 @@ fn main() {
                 process::exit(1);
             }
         }
+        Commands::Summary => print_summary(&config),
     }
 
     // print_summary(&config);
@@ -164,34 +165,6 @@ fn run_command(task: &Task) -> anyhow::Result<()> {
     }
 
     Ok(())
-}
-
-fn find_root_tasks(config: &Config, task: &str) -> anyhow::Result<()> {
-    let root_tasks = config.get_root_tasks();
-
-    if root_tasks.iter().any(|t| *t == task) {
-        run_task(task)?;
-        Ok(())
-    } else {
-        Err(anyhow::anyhow!(
-            "Task '{}' not found or defined in configuration",
-            task
-        ))
-    }
-}
-
-fn find_tasks(config: &Config, task: &str) -> anyhow::Result<()> {
-    let root_tasks = config.get_dependent_tasks(task);
-
-    if root_tasks.iter().any(|t| *t == task) {
-        run_task(task)?;
-        Ok(())
-    } else {
-        Err(anyhow::anyhow!(
-            "Task '{}' not found or defined in configuration",
-            task
-        ))
-    }
 }
 
 fn print_summary(config: &Config) {

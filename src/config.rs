@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     env::current_dir,
     fs,
     path::{Path, PathBuf},
@@ -167,6 +167,65 @@ impl Config {
             })
             .map(|(name, _)| name)
             .collect()
+    }
+
+    /// Check if the task exists in the config
+    pub fn has_task(&self, name: &str) -> bool {
+        self.tasks.contains_key(name)
+    }
+
+    /// Get a task by its name
+    pub fn get_task(&self, name: &str) -> Option<&Task> {
+        self.tasks.get(name)
+    }
+
+    /// Get the execution order for a task and its dependencies
+    pub fn get_exec_order(&self, task_name: &str) -> Result<Vec<String>, ConfigError> {
+        let mut visited = HashSet::new();
+        let mut order = Vec::new();
+
+        self.resolve_dependencies(task_name, &mut visited, &mut order)?;
+        Ok(order)
+    }
+
+    /// Recursively resolve the given task dependencies
+    fn resolve_dependencies(
+        &self,
+        task_name: &str,
+        visited: &mut HashSet<String>,
+        order: &mut Vec<String>,
+    ) -> Result<(), ConfigError> {
+        if visited.contains(task_name) {
+            return Err(ConfigError::CircularDependency(task_name.to_string()));
+        }
+
+        let task = self
+            .tasks
+            .get(task_name)
+            .ok_or_else(|| ConfigError::InvalidDependency {
+                task: "requested".to_string(),
+                dependency: task_name.to_string(),
+            })?;
+
+        visited.insert(task_name.to_string());
+
+        // Resolve all the dependencies of this task
+        if let Some(deps) = &task.depends_on {
+            for dep in deps {
+                if !order.contains(dep) {
+                    self.resolve_dependencies(dep, visited, order)?;
+                }
+            }
+        }
+
+        // Add the task if it is not already in execution order
+        if !order.contains(&task_name.to_string()) {
+            order.push(task_name.to_string());
+        }
+
+        visited.remove(task_name);
+
+        Ok(())
     }
 
     pub fn get_dependent_tasks(&self, task_name: &str) -> Vec<&String> {

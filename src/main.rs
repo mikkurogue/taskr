@@ -32,7 +32,7 @@ fn main() {
 
     match &cli.command {
         Commands::Run { name } => {
-            if let Err(err) = find_root_tasks(&config, &name) {
+            if let Err(err) = run_task_with_deps(&config, &name) {
                 eprintln!("{err}");
                 process::exit(1);
             }
@@ -40,6 +40,39 @@ fn main() {
     }
 
     // print_summary(&config);
+}
+
+fn run_task_with_deps(config: &Config, task_name: &str) -> anyhow::Result<()> {
+    // Check that the task exists
+    if !config.has_task(task_name) {
+        return Err(anyhow::anyhow!(
+            "Task '{}' not found in project configuration",
+            task_name
+        ));
+    }
+
+    let exec_order = config.get_exec_order(task_name)?;
+
+    println!(
+        "Executing commands in following order::: {}",
+        exec_order.join(" ==> ")
+    );
+
+    // For now we simulate the task runner, as I don't trust myself yet
+    for task in exec_order {
+        let task_config = config.get_task(&task).unwrap();
+
+        println!("Running task '{}':: '{}'", task, task_config.command);
+
+        if let Some(desc) = &task_config.description {
+            println!("    {}", desc);
+        }
+
+        // TODO: actually run the command here with like a
+        // run_command(&task_config.command)?;
+    }
+
+    Ok(())
 }
 
 fn find_root_tasks(config: &Config, task: &str) -> anyhow::Result<()> {

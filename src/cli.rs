@@ -12,5 +12,6 @@ pub enum Commands {
         /// the task name to run
         name: String,
     },
+    /// Print the summary of the configuration to see what it should do
     Summary,
 }

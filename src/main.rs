@@ -1,5 +1,6 @@
 mod cli;
 mod config;
+mod watcher;
 
 use clap::Parser;
 use cli::{Cli, Commands};
@@ -170,69 +171,90 @@ fn run_command(task: &Task) -> anyhow::Result<()> {
 fn print_summary(config: &Config) {
     let global = config.get_global_config();
 
-    println!("\n=== Task Runner Configuration ===");
+    println!("\n┌──────────────────────────────────────┐");
+    println!("│        🛠️  Task Runner Config         │");
+    println!("└──────────────────────────────────────┘");
     println!(
-        "Log Level: {}",
-        global.log_level.unwrap_or_else(|| "info".to_string())
+        "  • Log Level     : {}",
+        global
+            .log_level
+            .clone()
+            .unwrap_or_else(|| "info".to_string())
     );
-    println!("Max Parallel: {}", global.max_parallel.unwrap_or(4));
+    println!("  • Max Parallel  : {}", global.max_parallel.unwrap_or(4));
     println!(
-        "Output Dir: {}",
+        "  • Output Dir    : {}",
         global
             .output_dir
+            .clone()
             .unwrap_or_else(|| ".task-logs".to_string())
     );
 
-    println!("\n=== Tasks ({}) ===", config.tasks.len());
+    println!("\n┌──────────────────────────────────────┐");
+    println!(
+        "│          📋 Tasks ({})                 │",
+        config.tasks.len()
+    );
+    println!("└──────────────────────────────────────┘");
+
     for (name, task) in &config.tasks {
-        println!("  {}", name);
-        println!("     Command: {}", task.command);
+        println!("  • {}", name);
+        println!("     ├─ Command       : {}", task.command);
 
         if let Some(desc) = &task.description {
-            println!("     Description: {}", desc);
+            println!("     ├─ Description   : {}", desc);
         }
 
         if let Some(deps) = &task.depends_on {
-            println!("     Dependencies: {}", deps.join(", "));
+            println!("     ├─ Dependencies  : {}", deps.join(", "));
         }
 
         if let Some(parsers) = &task.parsers {
-            println!("     Parsers: {}", parsers.join(", "));
+            println!("     ├─ Parsers       : {}", parsers.join(", "));
         }
 
         if let Some(watch) = &task.watch_files {
-            println!("     Watching: {}", watch.join(", "));
+            println!("     ├─ Watching      : {}", watch.join(", "));
         }
 
         if task.auto_restart == Some(true) {
-            println!("     Auto-restart: enabled");
+            println!("     ├─ Auto-restart  : ✅ enabled");
         }
 
         if let Some(port) = task.port_check {
-            println!("     Port check: {}", port);
+            println!("     └─ Port check    : {}", port);
+        } else {
+            println!("     └─ Port check    : (none)");
         }
 
         println!();
     }
 
     if let Some(parsers) = &config.parsers {
-        println!("=== Parsers ({}) ===", parsers.len());
+        println!("┌──────────────────────────────────────┐");
+        println!("│          🔍 Parsers ({})               │", parsers.len());
+        println!("└──────────────────────────────────────┘");
+
         for (name, parser) in parsers {
-            println!("  {}", name);
-            println!("     Patterns: {}", parser.patterns.len());
+            println!("  • {}", name);
+            println!("     ├─ Pattern count : {}", parser.patterns.len());
             for pattern in &parser.patterns {
-                println!("       - {} ({})", pattern.regex, pattern.level);
+                println!(
+                    "     └─ Pattern       : {}  [{}]",
+                    pattern.regex, pattern.level
+                );
             }
             println!();
         }
     }
 
-    // Show task dependency tree
     let root_tasks = config.get_root_tasks();
     if !root_tasks.is_empty() {
-        println!("=== Root Tasks (no dependencies) ===");
+        println!("┌──────────────────────────────────────┐");
+        println!("│       🌱 Root Tasks (no deps)         │");
+        println!("└──────────────────────────────────────┘");
         for task in root_tasks {
-            println!("  {}", task);
+            println!("  • {}", task);
         }
         println!();
     }

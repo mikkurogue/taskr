@@ -10,33 +10,6 @@ parsers = ["yarn-install"]
 watch_files = ["package.json", "yarn.lock"]
 auto_restart = false
 
-[tasks.dev]
-command = "yarn dev"
-description = "Start Next.js dev server"  
-parsers = ["nextjs", "webpack-dev"]
-depends_on = ["install"]
-auto_restart = true
-port_check = 3000
-
-[tasks.build]
-command = "yarn build"
-description = "Build for production"
-parsers = ["typescript"]
-depends_on = ["install"]
-
-[tasks.nx-serve]
-command = "npx nx serve my-app"
-description = "Serve NX application"
-parsers = ["nx-serve", "webpack-dev"]
-depends_on = ["install"]
-working_dir = "./apps/my-app"
-
-[tasks.test]
-command = "yarn test"
-description = "Run tests"
-parsers = ["jest"]
-depends_on = ["install"]
-
 # Parser configurations
 [parsers.yarn-install]
 patterns = [
@@ -45,37 +18,3 @@ patterns = [
   { regex = "✨  Done in (.+)s", level = "success", extract = "duration" }
 ]
 
-[parsers.nextjs]
-patterns = [
-  { regex = "ready - started server on.+", level = "success" },
-  { regex = "event - compiled (.+)", level = "info", extract = "status" },
-  { regex = "wait  - compiling", level = "info" },
-  { regex = "Error: (.+)", level = "error", extract = "message" }
-]
-
-[parsers.webpack-dev]
-patterns = [
-  { regex = "webpack compiled with (\\d+) warning", level = "warn", extract = "count" },
-  { regex = "webpack compiled successfully", level = "success" },
-  { regex = "Module not found: (.+)", level = "error", extract = "message" }
-]
-
-[parsers.nx-serve]
-patterns = [
-  { regex = "Web Development Server is listening", level = "success" },
-  { regex = "Application bundle generation complete", level = "info" },
-  { regex = "ERROR in (.+)", level = "error", extract = "message" }
-]
-
-[parsers.typescript]
-patterns = [
-  { regex = "Found (\\d+) error", level = "error", extract = "count" },
-  { regex = "Compiled successfully", level = "success" }
-]
-
-[parsers.jest]
-patterns = [
-  { regex = "PASS (.+)", level = "success", extract = "file" },
-  { regex = "FAIL (.+)", level = "error", extract = "file" },
-  { regex = "Tests:\\s+(\\d+) passed", level = "info", extract = "passed" }
-]

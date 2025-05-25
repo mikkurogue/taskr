@@ -3,8 +3,18 @@ mod config;
 
 use clap::Parser;
 use cli::{Cli, Commands, run_task};
-use config::{Config, ConfigError};
-use std::process;
+use config::{Config, ConfigError, Task};
+use std::{
+    io::{BufRead, BufReader},
+    process::{self, Command, Stdio},
+    sync::mpsc,
+    thread,
+};
+
+#[derive(Debug)]
+enum OutputLine {
+    Stdout(String),
+}
 
 fn main() {
     let cli = Cli::parse();
@@ -62,14 +72,95 @@ fn run_task_with_deps(config: &Config, task_name: &str) -> anyhow::Result<()> {
     for task in exec_order {
         let task_config = config.get_task(&task).unwrap();
 
-        println!("Running task '{}':: '{}'", task, task_config.command);
+        println!("🚀 Running task '{}'", task);
 
         if let Some(desc) = &task_config.description {
-            println!("    {}", desc);
+            println!("   📝 {}", desc);
         }
 
-        // TODO: actually run the command here with like a
-        // run_command(&task_config.command)?;
+        println!("   💻 {}", task_config.command);
+        println!("   ─────────────────────────────────");
+
+        if let Err(e) = run_command(task_config) {
+            eprintln!("❌ Task '{}' failed: {}", task, e);
+            return Err(e);
+        }
+
+        println!("✅ Task '{}' completed successfully", task);
+        println!();
+    }
+
+    Ok(())
+}
+
+fn run_command(task: &Task) -> anyhow::Result<()> {
+    let parts: Vec<&str> = task.command.split_whitespace().collect();
+    if parts.is_empty() {
+        return Err(anyhow::anyhow!("Empty command"));
+    }
+
+    let (cmd, args) = parts.split_first().unwrap();
+
+    let mut command = Command::new(cmd);
+    command.args(args);
+
+    if let Some(working_dir) = &task.working_dir {
+        command.current_dir(working_dir);
+    }
+
+    if let Some(env_vars) = &task.env {
+        for (key, value) in env_vars {
+            command.env(key, value);
+        }
+    }
+
+    command.stdout(Stdio::piped());
+    command.stdout(Stdio::piped());
+
+    let mut child = command
+        .spawn()
+        .map_err(|e| anyhow::anyhow!("Failed to start command '{}': {}", task.command, e))?;
+
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| anyhow::anyhow!("Failed to capture stdout"))?;
+    let (tx, rx) = mpsc::channel();
+
+    let tx_stdout = tx.clone();
+
+    let stdout_handle = thread::spawn(move || {
+        let reader = BufReader::new(stdout);
+        for line in reader.lines() {
+            if let Ok(line) = line {
+                let _ = tx_stdout.send(OutputLine::Stdout(line));
+            }
+        }
+    });
+
+    drop(tx);
+
+    while let Ok(output) = rx.try_recv() {
+        match output {
+            OutputLine::Stdout(line) => {
+                println!("   📤 {}", line);
+            }
+        }
+    }
+
+    let _ = stdout_handle.join();
+
+    // Wait for the process to complete
+    let status = child
+        .wait()
+        .map_err(|e| anyhow::anyhow!("Failed to wait for process: {}", e))?;
+
+    if !status.success() {
+        return Err(anyhow::anyhow!(
+            "Command '{}' failed with exit code: {}",
+            task.command,
+            status.code().unwrap_or(-1)
+        ));
     }
 
     Ok(())

@@ -15,6 +15,7 @@ use std::{
 #[derive(Debug)]
 enum OutputLine {
     Stdout(String),
+    Stderr(String),
 }
 
 fn main() {
@@ -85,6 +86,7 @@ fn run_task_with_deps(config: &Config, task_name: &str) -> anyhow::Result<()> {
 
         if let Err(e) = run_command(task_config) {
             eprintln!("❌ Task '{}' failed: {}", task, e);
+
             return Err(e);
         }
 
@@ -117,7 +119,7 @@ fn run_command(task: &Task) -> anyhow::Result<()> {
     }
 
     command.stdout(Stdio::piped());
-    command.stdout(Stdio::piped());
+    command.stderr(Stdio::piped());
 
     let mut child = command
         .spawn()
@@ -127,10 +129,14 @@ fn run_command(task: &Task) -> anyhow::Result<()> {
         .stdout
         .take()
         .ok_or_else(|| anyhow::anyhow!("Failed to capture stdout"))?;
+    let stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| anyhow::anyhow!("Failed to capture stderr"))?;
+
     let (tx, rx) = mpsc::channel();
 
     let tx_stdout = tx.clone();
-
     let stdout_handle = thread::spawn(move || {
         let reader = BufReader::new(stdout);
         for line in reader.lines() {
@@ -140,19 +146,28 @@ fn run_command(task: &Task) -> anyhow::Result<()> {
         }
     });
 
-    drop(tx);
-
-    while let Ok(output) = rx.try_recv() {
-        match output {
-            OutputLine::Stdout(line) => {
-                println!("   📤 {}", line);
+    let tx_stderr = tx.clone();
+    let stderr_handle = thread::spawn(move || {
+        let reader = BufReader::new(stderr);
+        for line in reader.lines() {
+            if let Ok(line) = line {
+                let _ = tx_stderr.send(OutputLine::Stderr(line));
             }
+        }
+    });
+
+    drop(tx); // close sending end
+
+    for output in rx {
+        match output {
+            OutputLine::Stdout(line) => println!("        {}", line),
+            OutputLine::Stderr(line) => eprintln!("       {}", line),
         }
     }
 
     let _ = stdout_handle.join();
+    let _ = stderr_handle.join();
 
-    // Wait for the process to complete
     let status = child
         .wait()
         .map_err(|e| anyhow::anyhow!("Failed to wait for process: {}", e))?;

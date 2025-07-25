@@ -1,10 +1,11 @@
 mod cli;
+mod commands;
 mod config;
 mod watcher;
 
 use clap::Parser;
 use cli::{Cli, Commands};
-use config::{Config, ConfigError, Task};
+use config::{Config, Task};
 use std::{
     io::{BufRead, BufReader},
     process::{self, Command, Stdio},
@@ -43,6 +44,12 @@ fn main() {
     };
 
     match &cli.command {
+        Commands::Add(_) => {
+            if let Err(err) = commands::add::add_task() {
+                eprintln!("{err}");
+                process::exit(1);
+            }
+        }
         Commands::Run { name } => {
             if let Err(err) = run_task_with_deps(&config, &name) {
                 eprintln!("{err}");
@@ -51,8 +58,6 @@ fn main() {
         }
         Commands::Summary => print_summary(&config),
     }
-
-    // print_summary(&config);
 }
 
 fn run_task_with_deps(config: &Config, task_name: &str) -> anyhow::Result<()> {

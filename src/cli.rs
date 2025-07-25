@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand};
+use crate::commands::add;
 
 #[derive(Parser, Debug)]
 pub struct Cli {
@@ -8,6 +9,8 @@ pub struct Cli {
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
+    /// Add a new task
+    Add(add::AddArgs),
     Run {
         /// the task name to run
         name: String,

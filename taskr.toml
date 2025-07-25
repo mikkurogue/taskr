@@ -3,18 +3,57 @@ log_level = "info"
 max_parallel = 4
 output_dir = ".task-logs"
 
+[tasks.serve-frontend]
+command = "nx serve frontend"
+description = "Serve the frontend project from nx monorepo"
+watch_files = ["none"]
+working_dir = " "
+
 [tasks.install]
 command = "yarn install"
 description = "Install dependencies"
 parsers = ["yarn-install"]
-watch_files = ["package.json", "yarn.lock"]
+watch_files = [
+    "package.json",
+    "yarn.lock",
+]
 auto_restart = false
 
-# Parser configurations
-[parsers.yarn-install]
-patterns = [
-  { regex = "warning (.+)", level = "warn", extract = "message" },
-  { regex = "error (.+)", level = "error", extract = "message" },
-  { regex = "✨  Done in (.+)s", level = "success", extract = "duration" }
-]
+[tasks.build-fe]
+command = "nx build frontend"
+description = "Build the frontend from the nx project"
+parsers = ["nextjs"]
+depends_on = ["install"]
 
+[[parsers.nextjs.patterns]]
+regex = "ready - started server on.+"
+level = "success"
+
+[[parsers.nextjs.patterns]]
+regex = "event - compiled (.+)"
+level = "info"
+extract = "status"
+
+[[parsers.nextjs.patterns]]
+regex = "wait  - compiling"
+level = "info"
+
+[[parsers.nextjs.patterns]]
+regex = "Error: (.+)"
+level = "error"
+extract = "message"
+
+[[parsers.yarn-install.patterns]]
+regex = "warning (.+)"
+level = "warn"
+extract = "message"
+
+[[parsers.yarn-install.patterns]]
+regex = "error (.+)"
+level = "error"
+extract = "message"
+
+[[parsers.yarn-install.patterns]]
+regex = "✨  Done in (.+)s"
+level = "success"
+extract = "duration"
